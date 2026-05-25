@@ -1,4 +1,4 @@
-# Source — only the built dist/index.js ships
+# Source - only the built dist/index.js ships
 src/
 tsconfig.json
 .github/

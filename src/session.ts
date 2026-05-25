@@ -140,7 +140,7 @@ export async function fetchHtml(url: string): Promise<string> {
           pageCache.set(url, body);
           return body;
         }
-        // Token rejected or stale — drop it so the next attempt re-solves.
+        // Token rejected or stale - drop it so the next attempt re-solves.
         cookieHeader = "";
         lastError = new BilbasenBlockedError(`Bilbasen returned status ${status} for ${url}.`);
       } catch (error) {

@@ -7,8 +7,8 @@ interface Entry {
 
 /**
  * Minimal in-memory TTL cache with insertion-order (FIFO) eviction.
- * Keeps recently fetched Bilbasen pages so repeated queries — and the
- * multi-page sampling done by the statistics tool — avoid redundant requests.
+ * Keeps recently fetched Bilbasen pages so repeated queries - and the
+ * multi-page sampling done by the statistics tool - avoid redundant requests.
  */
 class TtlCache {
   private store = new Map<string, Entry>();

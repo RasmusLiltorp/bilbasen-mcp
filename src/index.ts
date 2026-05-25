@@ -1,5 +1,5 @@
 /**
- * MCP server for Bilbasen.dk — Denmark's largest used-car marketplace.
+ * MCP server for Bilbasen.dk - Denmark's largest used-car marketplace.
  *
  * Bilbasen has no public API and is protected by an AWS WAF JavaScript
  * challenge. A headless browser solves that challenge once; afterwards every
@@ -239,7 +239,7 @@ Examples:
           "",
           ...listings.map(listingToMarkdown),
           "",
-          result.has_more ? `More results available — request page ${result.page + 1}.` : "End of results.",
+          result.has_more ? `More results available - request page ${result.page + 1}.` : "End of results.",
         ].join("\n\n");
       }
 
@@ -311,7 +311,7 @@ Error Handling:
           `# ${detail.title}`,
           `**Price**: ${detail.display_price}` +
             (detail.monthly_payment ? ` | **Monthly**: ${detail.monthly_payment}` : ""),
-          detail.dealer_name ? `**Dealer**: ${detail.dealer_name} — ${detail.dealer_address ?? ""}` : "",
+          detail.dealer_name ? `**Dealer**: ${detail.dealer_name} - ${detail.dealer_address ?? ""}` : "",
           "",
           "## Facts",
           ...factLines,
