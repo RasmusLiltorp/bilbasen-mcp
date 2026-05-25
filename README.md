@@ -33,9 +33,19 @@ bun run start
 
 The server speaks MCP over stdio.
 
+## Use with Claude Code
+
+Add the server as a local stdio MCP from the project directory:
+
+```bash
+claude mcp add bilbasen --scope user -- bun run /absolute/path/to/bilbasen-mcp/src/index.ts
+```
+
+Scopes: `local` (default, this project only), `project` (writes a checked-in `.mcp.json`), `user` (available in all your projects). Check it loaded with `/mcp` inside Claude Code, or `claude mcp list` from the shell. See the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) for full details.
+
 ## Use with Claude Desktop
 
-Add to `claude_desktop_config.json`:
+Open **Settings → Developer → Edit Config** (or edit `claude_desktop_config.json` directly) and add:
 
 ```json
 {
@@ -48,11 +58,11 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-## Use with Claude Code
+Restart Claude Desktop. If `bun` isn't on the launchd PATH that Claude Desktop sees, use the absolute path from `which bun` instead of `"bun"`.
 
-```bash
-claude mcp add bilbasen -- bun run /absolute/path/to/bilbasen-mcp/src/index.ts
-```
+## Use with Claude.ai (web)
+
+Claude.ai's **Settings → Connectors → Add custom connector** flow only accepts **remote MCP servers reachable over public HTTPS** — it cannot spawn local stdio processes. This server speaks stdio, so to use it from claude.ai you'd need to expose it over HTTP yourself (e.g. wrap it with an HTTP/SSE transport behind a public URL with auth) and then add that URL at [claude.ai/settings/connectors](https://claude.ai/settings/connectors). For personal local use, prefer **Claude Code** or **Claude Desktop** above. See [Anthropic's custom connector docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) for the connector flow.
 
 ## Development
 
