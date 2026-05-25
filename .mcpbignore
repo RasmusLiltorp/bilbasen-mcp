@@ -1,0 +1,28 @@
+# Source — only the built dist/index.js ships
+src/
+tsconfig.json
+.github/
+.gitignore
+.mcpbignore
+bun.lock
+package-lock.json
+
+# Dev artifacts
+*.mcpb
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+
+# Dev-only deps (we want a prod install in the bundle anyway)
+node_modules/@types/
+node_modules/typescript/
+node_modules/tsx/
+node_modules/esbuild/
+node_modules/@anthropic-ai/mcpb/

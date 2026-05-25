@@ -1,6 +1,38 @@
+import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { chromium, type Browser } from "playwright";
+
+const requireFromHere = createRequire(import.meta.url);
 import { pageCache } from "./cache.ts";
 import { FETCH_TIMEOUT_MS, USER_AGENT } from "./constants.ts";
+
+let chromiumInstalled = false;
+let installInFlight: Promise<void> | null = null;
+
+/**
+ * Playwright ships without browsers; on a packaged `.mcpb` install the user
+ * has never run `playwright install`. Trigger it lazily on first use so the
+ * server works out-of-the-box. Subsequent launches are zero-cost.
+ */
+async function ensureChromium(): Promise<void> {
+  if (chromiumInstalled) return;
+  if (!installInFlight) {
+    installInFlight = new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        process.execPath,
+        [requireFromHere.resolve("playwright/cli"), "install", "chromium"],
+        { stdio: ["ignore", "inherit", "inherit"] },
+      );
+      child.on("error", reject);
+      child.on("exit", (code) =>
+        code === 0 ? resolve() : reject(new Error(`playwright install chromium exited with code ${code}`)),
+      );
+    }).then(() => {
+      chromiumInstalled = true;
+    });
+  }
+  await installInFlight;
+}
 
 /**
  * Bilbasen is protected by an AWS WAF JavaScript challenge. A headless browser
@@ -27,6 +59,7 @@ function isChallenge(body: string): boolean {
  * page, and stores the resulting cookies. Heavy assets are blocked for speed.
  */
 async function solveWafChallenge(triggerUrl: string): Promise<void> {
+  await ensureChromium();
   const browser: Browser = await chromium.launch({ headless: true });
   try {
     const ctx = await browser.newContext({

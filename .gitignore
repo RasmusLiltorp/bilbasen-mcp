@@ -20,3 +20,9 @@ node_modules/
 # Build output
 dist/
 build/
+
+# MCPB bundle artifact
+*.mcpb
+
+# Bun (no longer used)
+bun.lock

@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /**
  * MCP server for Bilbasen.dk — Denmark's largest used-car marketplace.
  *

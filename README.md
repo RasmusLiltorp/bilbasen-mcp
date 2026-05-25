@@ -12,64 +12,49 @@ Bilbasen has no public API, so this server scrapes the site. It solves the AWS W
 
 All tools return both human-readable markdown and structured JSON.
 
-## Requirements
-
-- [Bun](https://bun.sh) (runtime)
-- Chromium (installed automatically by Playwright on `bun install`)
-
 ## Install
 
-```bash
-git clone https://github.com/<you>/bilbasen-mcp.git
-cd bilbasen-mcp
-bun install
-```
+### Claude Desktop (one-click)
 
-## Run
+1. Download the latest `bilbasen-mcp.mcpb` from the [Releases page](https://github.com/liltorp03/bilbasen-mcp/releases/latest).
+2. Double-click the file. Claude Desktop opens an install dialog — click **Install**.
+3. Done. The first search takes ~30 s while Playwright downloads Chromium in the background; subsequent calls are instant.
 
-```bash
-bun run start
-```
+No Node, JSON editing, or terminal commands required — Claude Desktop ships its own Node runtime.
 
-The server speaks MCP over stdio.
-
-## Use with Claude Code
-
-Add the server as a local stdio MCP from the project directory:
+### Claude Code
 
 ```bash
-claude mcp add bilbasen --scope user -- bun run /absolute/path/to/bilbasen-mcp/src/index.ts
+claude mcp add bilbasen --scope user -- npx -y tsx /absolute/path/to/bilbasen-mcp/src/index.ts
 ```
 
-Scopes: `local` (default, this project only), `project` (writes a checked-in `.mcp.json`), `user` (available in all your projects). Check it loaded with `/mcp` inside Claude Code, or `claude mcp list` from the shell. See the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp) for full details.
+Or, if you've cloned and built the repo (`npm install && npm run build`):
 
-## Use with Claude Desktop
-
-Open **Settings → Developer → Edit Config** (or edit `claude_desktop_config.json` directly) and add:
-
-```json
-{
-  "mcpServers": {
-    "bilbasen": {
-      "command": "bun",
-      "args": ["run", "/absolute/path/to/bilbasen-mcp/src/index.ts"]
-    }
-  }
-}
+```bash
+claude mcp add bilbasen --scope user -- node /absolute/path/to/bilbasen-mcp/dist/index.js
 ```
 
-Restart Claude Desktop. If `bun` isn't on the launchd PATH that Claude Desktop sees, use the absolute path from `which bun` instead of `"bun"`.
+Scopes: `local` (default, this project only), `project` (writes a checked-in `.mcp.json`), `user` (available in all your projects). Verify with `/mcp` inside Claude Code or `claude mcp list` from the shell. See the [Claude Code MCP docs](https://code.claude.com/docs/en/mcp).
 
-## Use with Claude.ai (web)
+### Claude.ai (web)
 
-Claude.ai's **Settings → Connectors → Add custom connector** flow only accepts **remote MCP servers reachable over public HTTPS** — it cannot spawn local stdio processes. This server speaks stdio, so to use it from claude.ai you'd need to expose it over HTTP yourself (e.g. wrap it with an HTTP/SSE transport behind a public URL with auth) and then add that URL at [claude.ai/settings/connectors](https://claude.ai/settings/connectors). For personal local use, prefer **Claude Code** or **Claude Desktop** above. See [Anthropic's custom connector docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) for the connector flow.
+Claude.ai's **Settings → Connectors → Add custom connector** flow only accepts **remote MCP servers reachable over public HTTPS** — it cannot spawn local stdio processes. To use this server from claude.ai you'd need to wrap it with an HTTP/SSE transport behind a public URL with auth, then add that URL at [claude.ai/settings/connectors](https://claude.ai/settings/connectors). For personal local use, prefer **Claude Desktop** or **Claude Code** above. See [Anthropic's custom connector docs](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 ## Development
 
+Requirements: **Node.js ≥ 20**.
+
 ```bash
-bun run dev        # watch mode
-bun run typecheck  # tsc --noEmit
+git clone https://github.com/liltorp03/bilbasen-mcp.git
+cd bilbasen-mcp
+npm install
+npm run dev          # watch mode (tsx)
+npm run typecheck    # tsc --noEmit
+npm run build        # bundle to dist/index.js
+npm run pack:mcpb    # build + produce bilbasen-mcp.mcpb
 ```
+
+Releases are cut by pushing a `v*` tag — [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the `.mcpb` and attaches it to the GitHub Release automatically.
 
 ## Disclaimer
 

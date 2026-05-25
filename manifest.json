@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.2",
+  "name": "bilbasen-mcp",
+  "display_name": "Bilbasen.dk",
+  "version": "1.0.0",
+  "description": "Search car listings on Bilbasen.dk, Denmark's largest used-car marketplace.",
+  "long_description": "Three read-only tools that expose Bilbasen.dk to Claude: search with filters (price, year, mileage, fuel, gear, seller type), fetch full listing detail pages, and compute aggregate price/mileage/year statistics. The server transparently solves Bilbasen's AWS WAF JavaScript challenge with a headless Chromium and caches results in memory.",
+  "author": {
+    "name": "liltorp03"
+  },
+  "homepage": "https://github.com/liltorp03/bilbasen-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liltorp03/bilbasen-mcp"
+  },
+  "license": "MIT",
+  "keywords": ["bilbasen", "cars", "denmark", "marketplace", "scraper"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"]
+    }
+  },
+  "tools": [
+    {
+      "name": "bilbasen_search_listings",
+      "description": "Search used-car listings with filters."
+    },
+    {
+      "name": "bilbasen_get_listing",
+      "description": "Fetch full detail for a single listing by URL."
+    },
+    {
+      "name": "bilbasen_price_stats",
+      "description": "Aggregate price, mileage and year statistics across matching listings."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20"
+    }
+  }
+}
