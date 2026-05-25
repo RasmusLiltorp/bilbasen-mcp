@@ -16,7 +16,7 @@ All tools return both human-readable markdown and structured JSON.
 
 ### Claude Desktop (one-click)
 
-1. Download the latest `bilbasen-mcp.mcpb` from the [Releases page](https://github.com/liltorp03/bilbasen-mcp/releases/latest).
+1. Download the latest `bilbasen-mcp.mcpb` from the [Releases page](https://github.com/RasmusLiltorp/bilbasen-mcp/releases/latest).
 2. Double-click the file. Claude Desktop opens an install dialog - click **Install**.
 3. Done. The first search takes ~30 s while Playwright downloads Chromium in the background; subsequent calls are instant.
 
@@ -45,7 +45,7 @@ Claude.ai's **Settings → Connectors → Add custom connector** flow only accep
 Requirements: **Node.js ≥ 20**.
 
 ```bash
-git clone https://github.com/liltorp03/bilbasen-mcp.git
+git clone https://github.com/RasmusLiltorp/bilbasen-mcp.git
 cd bilbasen-mcp
 npm install
 npm run dev          # watch mode (tsx)

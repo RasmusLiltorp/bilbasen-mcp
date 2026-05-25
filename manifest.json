@@ -6,12 +6,12 @@
   "description": "Search car listings on Bilbasen.dk, Denmark's largest used-car marketplace.",
   "long_description": "Three read-only tools that expose Bilbasen.dk to Claude: search with filters (price, year, mileage, fuel, gear, seller type), fetch full listing detail pages, and compute aggregate price/mileage/year statistics. The server transparently solves Bilbasen's AWS WAF JavaScript challenge with a headless Chromium and caches results in memory.",
   "author": {
-    "name": "liltorp03"
+    "name": "RasmusLiltorp"
   },
-  "homepage": "https://github.com/liltorp03/bilbasen-mcp",
+  "homepage": "https://github.com/RasmusLiltorp/bilbasen-mcp",
   "repository": {
     "type": "git",
-    "url": "https://github.com/liltorp03/bilbasen-mcp"
+    "url": "https://github.com/RasmusLiltorp/bilbasen-mcp"
   },
   "license": "MIT",
   "keywords": ["bilbasen", "cars", "denmark", "marketplace", "scraper"],
