@@ -1,0 +1,22 @@
+node_modules/
+*.log
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Build output
+dist/
+build/
