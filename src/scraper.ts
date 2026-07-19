@@ -94,7 +94,9 @@ const MULTI_VALUE_PARAMS: Array<[keyof SearchFilters, string]> = [
   ["color", "color"],
 ];
 
-// Anhængertræk (tow_bar) types are bare valueless flags, OR-combined.
+// Anhængertræk (tow_bar) types are bare valueless flags. NOTE: Bilbasen
+// AND-combines equipment flags, so selecting several types matches only cars
+// that carry all of them — to match "any fitted tow bar", query each separately.
 export const TOW_BAR_FLAGS: Record<string, string> = {
   fixed: "towbar",
   removable: "detachabletowbar",

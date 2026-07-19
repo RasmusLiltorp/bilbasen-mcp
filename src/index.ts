@@ -78,7 +78,7 @@ const FilterShape = {
     .array(z.enum(["fixed", "removable", "swing_manual", "swing_electric"]))
     .optional()
     .describe(
-      "Require a fitted tow bar of the given type(s). fixed=fast monteret, removable=aftageligt, swing_manual=svingbart manuelt, swing_electric=svingbart elektrisk. Multiple types are OR-combined.",
+      "Require a fitted tow bar of the given type(s). fixed=fast monteret, removable=aftageligt, swing_manual=svingbart manuelt, swing_electric=svingbart elektrisk. NOTE: multiple types are AND-combined (a car must have all of them) — to match any fitted bar, search each type separately and merge.",
     ),
   // --- Battery & charging (EV) ---
   electric_range_min: z
@@ -179,7 +179,8 @@ const FilterShape = {
       message: "Unknown equipment flag. See the tool description for valid values.",
     })
     .describe(
-      "Required equipment feature flags (OR-combined). Valid values by category:\n" + equipmentCategories,
+      "Required equipment feature flags. NOTE: AND-combined — cars must have ALL listed features. Valid values by category:\n" +
+        equipmentCategories,
     ),
   sort: z
     .enum(["relevance", "price_asc", "price_desc", "newest", "year_desc", "mileage_asc"])
