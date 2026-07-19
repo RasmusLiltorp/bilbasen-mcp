@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { chromium, type Browser } from "playwright";
 
 const requireFromHere = createRequire(import.meta.url);
@@ -14,13 +16,30 @@ let installInFlight: Promise<void> | null = null;
  * has never run `playwright install`. Trigger it lazily on first use so the
  * server works out-of-the-box. Subsequent launches are zero-cost.
  */
+/** Resolves Playwright's install CLI. The `playwright/cli` subpath was dropped
+ *  from the package `exports` in newer versions, so locate it via package.json. */
+function resolvePlaywrightCli(): string {
+  const pkgPath = requireFromHere.resolve("playwright/package.json");
+  const pkg = requireFromHere("playwright/package.json") as { bin?: { playwright?: string } };
+  return join(dirname(pkgPath), pkg.bin?.playwright ?? "cli.js");
+}
+
 async function ensureChromium(): Promise<void> {
   if (chromiumInstalled) return;
+  // Fast path: a browser that is already downloaded needs no install step.
+  try {
+    if (existsSync(chromium.executablePath())) {
+      chromiumInstalled = true;
+      return;
+    }
+  } catch {
+    // executablePath() throws if no browser is registered; fall through to install.
+  }
   if (!installInFlight) {
     installInFlight = new Promise<void>((resolve, reject) => {
       const child = spawn(
         process.execPath,
-        [requireFromHere.resolve("playwright/cli"), "install", "chromium"],
+        [resolvePlaywrightCli(), "install", "chromium"],
         { stdio: ["ignore", "inherit", "inherit"] },
       );
       child.on("error", reject);
