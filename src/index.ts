@@ -12,6 +12,14 @@ import { z } from "zod";
 import { CHARACTER_LIMIT } from "./constants.ts";
 import { BilbasenBlockedError } from "./session.ts";
 import {
+  BODY_TYPE_OPTIONS,
+  CHARGER_TYPE_OPTIONS,
+  COLOR_OPTIONS,
+  CYLINDER_OPTIONS,
+  DOOR_OPTIONS,
+  DRIVE_WHEEL_OPTIONS,
+  EQUIPMENT_FLAGS,
+  EQUIPMENT_OPTIONS,
   getListingDetail,
   getPriceStats,
   searchListings,
@@ -19,6 +27,13 @@ import {
   type NumericStats,
   type SearchFilters,
 } from "./scraper.ts";
+
+/** Wraps a runtime string list as a Zod enum (Zod needs a non-empty tuple type). */
+const enumFrom = (values: string[]) => z.enum(values as [string, ...string[]]);
+const EQUIPMENT_SET = new Set(EQUIPMENT_OPTIONS);
+const equipmentCategories = Object.entries(EQUIPMENT_FLAGS)
+  .map(([cat, flags]) => `${cat}: ${flags.join(", ")}`)
+  .join("\n");
 
 enum ResponseFormat {
   MARKDOWN = "markdown",
@@ -50,6 +65,122 @@ const FilterShape = {
   year_to: z.number().int().min(1900).max(2100).optional().describe("Latest model year."),
   mileage_from: z.number().int().min(0).optional().describe("Minimum mileage in kilometres."),
   mileage_to: z.number().int().min(0).optional().describe("Maximum mileage in kilometres."),
+  min_tow: z
+    .number()
+    .int()
+    .min(1)
+    .max(9999)
+    .optional()
+    .describe(
+      "Minimum braked towing capacity in kg (Anhængertræk / anhængervægt). Only returns cars rated to tow at least this weight.",
+    ),
+  tow_bar: z
+    .array(z.enum(["fixed", "removable", "swing_manual", "swing_electric"]))
+    .optional()
+    .describe(
+      "Require a fitted tow bar of the given type(s). fixed=fast monteret, removable=aftageligt, swing_manual=svingbart manuelt, swing_electric=svingbart elektrisk. Multiple types are OR-combined.",
+    ),
+  // --- Battery & charging (EV) ---
+  electric_range_min: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Minimum electric/plug-in range in km (WLTP)."),
+  battery_capacity_min: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Minimum battery capacity in kWh."),
+  charger_type: z
+    .array(enumFrom(CHARGER_TYPE_OPTIONS))
+    .optional()
+    .describe("Required charging connector(s): ccs_combo, chademo, type1, type2. OR-combined."),
+  charge_time_dc_max: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Maximum DC fast-charge time in minutes (10-80%)."),
+  // --- Doors, seats & boot ---
+  doors: z
+    .array(enumFrom(DOOR_OPTIONS))
+    .optional()
+    .describe("Number of doors (1-6). Multiple values are OR-combined."),
+  trunk_size_min: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Minimum boot/luggage capacity in litres (Bilbasen steps by 100 L)."),
+  min_seven_seats: z
+    .boolean()
+    .optional()
+    .describe("If true, only cars with at least 7 seats."),
+  // --- Performance ---
+  drive_wheel: z
+    .array(enumFrom(DRIVE_WHEEL_OPTIONS))
+    .optional()
+    .describe("Driven wheels: front (forhjulstræk), back (baghjulstræk), four (firehjulstræk/AWD). OR-combined."),
+  horsepower_from: z.number().int().min(0).optional().describe("Minimum horsepower (hk)."),
+  horsepower_to: z.number().int().min(0).optional().describe("Maximum horsepower (hk)."),
+  torque_from: z.number().int().min(0).optional().describe("Minimum torque (Nm)."),
+  torque_to: z.number().int().min(0).optional().describe("Maximum torque (Nm)."),
+  acceleration_max: z
+    .number()
+    .min(0)
+    .optional()
+    .describe("Maximum 0-100 km/h acceleration in seconds."),
+  cylinders: z
+    .array(enumFrom(CYLINDER_OPTIONS))
+    .optional()
+    .describe("Number of cylinders (1-12). Multiple values are OR-combined."),
+  engine_volume_from: z.number().int().min(0).optional().describe("Minimum engine displacement in ccm."),
+  engine_volume_to: z.number().int().min(0).optional().describe("Maximum engine displacement in ccm."),
+  // --- Economy & condition ---
+  km_per_liter_min: z.number().min(0).optional().describe("Minimum fuel economy in km/l (petrol/diesel/hybrid)."),
+  green_tax_max: z.number().int().min(0).optional().describe("Maximum annual ownership tax (ejerafgift) in kr./year."),
+  service_ok: z.boolean().optional().describe("If true, only cars with service history in order (service overholdt)."),
+  newly_inspected: z.boolean().optional().describe("If true, only newly MOT-inspected cars (nysynet)."),
+  // --- Environment ---
+  co2_max: z.number().int().min(0).optional().describe("Maximum CO2 emission in g/km."),
+  euro_norm_min: z
+    .number()
+    .int()
+    .min(1)
+    .max(6)
+    .optional()
+    .describe("Minimum EuroNorm emission class (1-6)."),
+  // --- Location ---
+  zip_code: z.number().int().min(0).max(9999).optional().describe("Your postal code, used with distance_max."),
+  distance_max: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe("Maximum distance to seller in km. Requires zip_code."),
+  // --- Appearance ---
+  body_type: z
+    .array(enumFrom(BODY_TYPE_OPTIONS))
+    .optional()
+    .describe(
+      "Body type(s): micro, stationcar, suv, cuv, mpv, sedan, hatchback, cabriolet, coupe. OR-combined.",
+    ),
+  color: z
+    .array(enumFrom(COLOR_OPTIONS))
+    .optional()
+    .describe("Exterior colour(s), Danish names (e.g. 'sort', 'hvid', 'blåmetal'). OR-combined."),
+  // --- Equipment (Ekstraudstyr) ---
+  equipment: z
+    .array(z.string())
+    .optional()
+    .refine((arr) => !arr || arr.every((e) => EQUIPMENT_SET.has(e)), {
+      message: "Unknown equipment flag. See the tool description for valid values.",
+    })
+    .describe(
+      "Required equipment feature flags (OR-combined). Valid values by category:\n" + equipmentCategories,
+    ),
   sort: z
     .enum(["relevance", "price_asc", "price_desc", "newest", "year_desc", "mileage_asc"])
     .optional()
@@ -105,20 +236,16 @@ const StatsInputSchema = z
   })
   .strict();
 
+// Every FilterShape key is also a SearchFilters key, so the filters are just the
+// filter-relevant subset of the validated tool input (page/limit/etc. excluded).
+const FILTER_KEYS = Object.keys(FilterShape) as (keyof SearchFilters)[];
+
 function pickFilters(input: Record<string, unknown>): SearchFilters {
-  return {
-    query: input.query as string | undefined,
-    fuel: input.fuel as string | undefined,
-    gear: input.gear as string | undefined,
-    price_from: input.price_from as number | undefined,
-    price_to: input.price_to as number | undefined,
-    year_from: input.year_from as number | undefined,
-    year_to: input.year_to as number | undefined,
-    mileage_from: input.mileage_from as number | undefined,
-    mileage_to: input.mileage_to as number | undefined,
-    seller_type: input.seller_type as string | undefined,
-    sort: input.sort as string | undefined,
-  };
+  const filters: Record<string, unknown> = {};
+  for (const key of FILTER_KEYS) {
+    if (input[key] !== undefined) filters[key] = input[key];
+  }
+  return filters as SearchFilters;
 }
 
 function listingToMarkdown(l: Listing): string {
@@ -186,6 +313,15 @@ Args:
   - price_from / price_to (number, optional): Cash price range in DKK
   - year_from / year_to (number, optional): Model year range
   - mileage_from / mileage_to (number, optional): Mileage range in km
+  - min_tow (number) / tow_bar (array, optional): Towing capacity in kg and fitted tow-bar type(s)
+  - electric_range_min / battery_capacity_min / charger_type / charge_time_dc_max (optional): EV battery & charging
+  - doors / trunk_size_min / min_seven_seats (optional): Doors, boot litres, 7+ seats
+  - drive_wheel / horsepower_from|to / torque_from|to / acceleration_max / cylinders / engine_volume_from|to (optional): Performance
+  - km_per_liter_min / green_tax_max / service_ok / newly_inspected (optional): Economy & condition
+  - co2_max / euro_norm_min (optional): Environment
+  - zip_code / distance_max (optional): Location (distance requires zip_code)
+  - body_type / color (array, optional): Body style & colour
+  - equipment (array, optional): Required equipment feature flags (see the equipment arg for valid values)
   - sort ('relevance'|'price_asc'|'price_desc'|'newest'|'year_desc'|'mileage_asc'): Result ordering (default: 'relevance')
   - page (number): Results page, 1-100 (default: 1)
   - limit (number): Max listings to return, 1-30 (default: 30)
@@ -360,6 +496,11 @@ Args:
   - price_from / price_to (number, optional): Cash price range in DKK
   - year_from / year_to (number, optional): Model year range
   - mileage_from / mileage_to (number, optional): Mileage range in km
+  - min_tow, tow_bar, electric_range_min, battery_capacity_min, charger_type, charge_time_dc_max,
+    doors, trunk_size_min, min_seven_seats, drive_wheel, horsepower_from/to, torque_from/to,
+    acceleration_max, cylinders, engine_volume_from/to, km_per_liter_min, green_tax_max, service_ok,
+    newly_inspected, co2_max, euro_norm_min, zip_code, distance_max, body_type, color, equipment
+    (optional): same advanced filters as bilbasen_search_listings
   - max_pages (number): Result pages to sample, 1-10 (default: 3)
   - response_format ('markdown'|'json'): Output format (default: 'markdown')
 

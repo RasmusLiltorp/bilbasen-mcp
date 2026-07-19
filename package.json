@@ -12,6 +12,7 @@
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/*.test.ts",
     "pack:mcpb": "npm run build && mcpb pack . bilbasen-mcp.mcpb"
   },
   "dependencies": {

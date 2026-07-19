@@ -14,7 +14,187 @@ export interface SearchFilters {
   mileage_to?: number;
   seller_type?: string;
   sort?: string;
+  // Anhænger (towing)
+  min_tow?: number;
+  tow_bar?: string[];
+  // Batteri & opladning (EV)
+  electric_range_min?: number;
+  battery_capacity_min?: number;
+  charger_type?: string[];
+  charge_time_dc_max?: number;
+  // Døre, sæder og bagagerum
+  doors?: string[];
+  trunk_size_min?: number;
+  min_seven_seats?: boolean;
+  // Ydelse (performance)
+  drive_wheel?: string[];
+  horsepower_from?: number;
+  horsepower_to?: number;
+  torque_from?: number;
+  torque_to?: number;
+  acceleration_max?: number;
+  cylinders?: string[];
+  engine_volume_from?: number;
+  engine_volume_to?: number;
+  // Økonomi & stand
+  km_per_liter_min?: number;
+  green_tax_max?: number;
+  service_ok?: boolean;
+  newly_inspected?: boolean;
+  // Miljø
+  co2_max?: number;
+  euro_norm_min?: number;
+  // Geografi
+  zip_code?: number;
+  distance_max?: number;
+  // Udseende
+  body_type?: string[];
+  color?: string[];
+  // Ekstraudstyr (equipment)
+  equipment?: string[];
 }
+
+// --- Bilbasen URL parameter mappings (discovered from the live site) ---
+
+// Scalar filters -> the Bilbasen query parameter carrying their raw number.
+const NUMERIC_PARAMS: Array<[keyof SearchFilters, string]> = [
+  ["min_tow", "mintow"],
+  ["trunk_size_min", "trunksize"],
+  ["euro_norm_min", "euronorm"],
+  ["co2_max", "co2emission"],
+  ["green_tax_max", "greentaxto"],
+  ["km_per_liter_min", "kmlfrom"],
+  ["electric_range_min", "rangefrom"],
+  ["battery_capacity_min", "batterysizefrom"],
+  ["acceleration_max", "zerotohundredacceleration"],
+  ["charge_time_dc_max", "chargetimedc"],
+  ["zip_code", "zipcode"],
+  ["distance_max", "distance"],
+  ["horsepower_from", "hpfrom"],
+  ["horsepower_to", "hpto"],
+  ["torque_from", "torquefrom"],
+  ["torque_to", "torqueto"],
+  ["engine_volume_from", "motorvolumeccmfrom"],
+  ["engine_volume_to", "motorvolumeccmto"],
+];
+
+// Boolean filters -> a fixed `key=value` pair, emitted only when truthy.
+const BOOLEAN_PARAMS: Array<[keyof SearchFilters, string, string]> = [
+  ["service_ok", "serviceok", "true"],
+  ["newly_inspected", "newlymot", "true"],
+  ["min_seven_seats", "seatnumber", "sevenperson"],
+];
+
+// Multi-select filters -> param name; each value is appended as a repeated key.
+const MULTI_VALUE_PARAMS: Array<[keyof SearchFilters, string]> = [
+  ["body_type", "cartype"],
+  ["drive_wheel", "drivewheel"],
+  ["doors", "doors"],
+  ["cylinders", "numberofcylinders"],
+  ["color", "color"],
+];
+
+// Anhængertræk (tow_bar) types are bare valueless flags, OR-combined.
+export const TOW_BAR_FLAGS: Record<string, string> = {
+  fixed: "towbar",
+  removable: "detachabletowbar",
+  swing_manual: "swingawaytowbar",
+  swing_electric: "swingawaytowbarelectric",
+};
+export const TOW_BAR_OPTIONS = Object.keys(TOW_BAR_FLAGS);
+
+// Ladestik (charger_type) -> Bilbasen numeric codes.
+export const CHARGER_TYPE_CODES: Record<string, number> = {
+  ccs_combo: 1,
+  chademo: 2,
+  type1: 3,
+  type2: 4,
+};
+export const CHARGER_TYPE_OPTIONS = Object.keys(CHARGER_TYPE_CODES);
+
+// Karrosseri (body_type) accepted values.
+export const BODY_TYPE_OPTIONS = [
+  "micro", "stationcar", "suv", "cuv", "mpv", "sedan", "hatchback", "cabriolet", "coupe",
+];
+
+// Trækhjul (drive_wheel) accepted values.
+export const DRIVE_WHEEL_OPTIONS = ["front", "back", "four"];
+
+// Antal døre (doors) accepted values.
+export const DOOR_OPTIONS = ["1", "2", "3", "4", "5", "6"];
+
+// Antal cylindre (cylinders) accepted values.
+export const CYLINDER_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "10", "12"];
+
+// Farve (color) accepted values (Danish colour names as used by Bilbasen).
+export const COLOR_OPTIONS = [
+  "beige", "beigemetal", "blå", "blåmetal", "bordeaux", "bordeauxmetal", "bronzemetal",
+  "brun", "brunmetal", "carbonsortmetal", "champagnemetal", "grøn", "grønmetal", "grå",
+  "gråmetal", "gul", "guldmetal", "gulmetal", "hvid", "hvidmetal", "kobbermetal", "koks",
+  "koksmetal", "lilla", "lillametal", "lysblå", "lysblåmetal", "lyserød", "lyserødmetal",
+  "lysgrøn", "lysgrønmetal", "metal", "mørkblå", "mørkblåmetal", "mørkgrøn", "mørkgrønmetal",
+  "mørkgrå", "mørkrød", "mørkrødmetal", "orange", "orangemetal", "perlemorshvid", "pink",
+  "postgul", "rød", "rødmetal", "sort", "sortmetal", "sølvmetal", "turkis", "turkismetal",
+  "violetmetal",
+];
+
+// Ekstraudstyr (equipment) flags, grouped by the site's categories. Each is a
+// bare valueless query flag; the URL parameter IS the flag itself.
+export const EQUIPMENT_FLAGS: Record<string, string[]> = {
+  interior: [
+    "adjustablelumbarsupport", "akustikglasibag", "akustikglasifor", "alcantaraupholstery",
+    "ambientlighting", "darkheadliner", "digitalcockpit", "dobbeltbagagerumsbund",
+    "driverseatmassage", "electricadjustabledriverseat", "electricadjustabledriversseatwithmemory",
+    "electricadjustablefrontseats", "electricadjustablelumbarsupport", "electriccomfortseats",
+    "fabricinterior", "heightadjustabledriversseat", "imitationleatherupholstery",
+    "integratedchildseats", "integratedsunblinds", "leatherstearing", "leatherupholstery",
+    "massageinfrontseats", "multifunctionsteeringwheel", "onboardcomputer",
+    "partialalcantaraupholstery", "partialimitationleatherupholstery", "partialleatherupholstery",
+    "pilotseats", "sevenseater", "sixseater", "splitbackseat", "sportseats",
+    "threeindividualseatsinback", "trunkcover",
+  ],
+  exterior: [
+    "adaptiveheadlights", "allseasonwheels", "alurims", "arealighting", "bixenonlamps",
+    "curvelight", "darktintedrearwindows", "detachabletowbar", "dynamicrearturnsignals",
+    "dynamicturnsignals", "eighteeninchalloywheels", "electricfoldablesidemirrors",
+    "electricfoldablesidemirrorsheated", "fifteeninchalloywheels", "foglamps", "fullledheadlights",
+    "glassroof", "heatedmirrors", "laserheadlights", "leddrivinglights", "ledrearlights",
+    "matrixledheadlights", "nineteeninchalloywheels", "powersunroof", "roofrails",
+    "seventeeninchalloywheels", "sixteeninchalloywheels", "solarpanels", "sunroof",
+    "twentyinchalloywheels", "twentyoneinchalloywheels", "twentytwoinchalloywheels",
+    "virtualsidemirrors", "wingmirrors", "winterwheels", "xenon",
+  ],
+  safety: [
+    "airbags", "alarm", "antispin", "autoemergencyassistant", "autohold", "automaticemergencybrake",
+    "automatichighbeam", "automaticlight", "automaticparkingsystem", "blindspotdetection",
+    "citysteering", "doubleairbags", "drivermonitoringwithwarning", "edrbox", "eightairbags",
+    "esp", "fatiguedetection", "fourairbags", "intelligentspeedassist", "isofix", "lampwashers",
+    "laneassist", "nightvision", "nineairbags", "parkingsensorback", "parkingsensorfront",
+    "rainsensor", "reversecamera", "semiautoparkingsystem", "sevenairbags", "sixairbags",
+    "tenairbags", "threesixtycamera", "tirepressuresystem", "trafficcamera",
+    "trafficsignrecognition", "videosurveillance", "virtualrearviewmirror", "voicecontrol",
+  ],
+  comfort: [
+    "adaptivechassis", "adaptivecruisecontrol", "adaptivecruisewithtrafficassist", "aircon",
+    "airsuspension", "appintegration", "autgear", "autobatterypreheat", "autodimmingrearmirror",
+    "automaticstartstop", "cabinheater", "centrallock", "cooledglovebox", "cruisecontrol",
+    "electricdoors", "electricfronthood", "electricparkingbrake", "electrictailgate",
+    "emergencycharger", "enginecabinheater", "externaltempgauge", "footoperatedtailgate",
+    "fourzoneclimate", "fronttrunk", "fullautoclimate", "headupdisplay", "heatedseats",
+    "heatedsteeringwheel", "heatedwindshield", "heatpump", "integratedchargingcable",
+    "keylessaccess", "keylessstart", "manualbatterypreheat", "powerwindows", "powerwindowsx4",
+    "rearseatheating", "remotelock", "seatcooling", "steeringwheelshifters", "thirdrowseatheating",
+    "threezoneclimate", "twozoneclimate", "type2chargingcable", "v2g", "v2l",
+    "wirelesscellphonecharging",
+  ],
+  multimedia: [
+    "androidauto", "applecarplay", "auxconnection", "bluetoothaudiostreaming", "cdplayer",
+    "cdradio", "dabplusradio", "dabradio", "gps", "handsfreemobile", "internet",
+    "rearseatentertainment", "sdcardreader", "usbtypeaconnection", "usbtypecconnection",
+  ],
+};
+export const EQUIPMENT_OPTIONS = Object.values(EQUIPMENT_FLAGS).flat();
+const EQUIPMENT_SET = new Set(EQUIPMENT_OPTIONS);
 
 export interface Listing {
   id: number;
@@ -112,14 +292,43 @@ export function buildSearchUrl(filters: SearchFilters, page: number): string {
   if (filters.seller_type && SELLER_TYPE_VALUES[filters.seller_type]) {
     params.set("SellerTypes", SELLER_TYPE_VALUES[filters.seller_type]);
   }
+
+  for (const [field, param] of NUMERIC_PARAMS) {
+    const value = filters[field] as number | undefined;
+    if (value !== undefined) params.set(param, String(value));
+  }
+  for (const [field, param, value] of BOOLEAN_PARAMS) {
+    if (filters[field]) params.set(param, value);
+  }
+  for (const [field, param] of MULTI_VALUE_PARAMS) {
+    const values = filters[field] as string[] | undefined;
+    if (Array.isArray(values)) for (const value of values) params.append(param, value);
+  }
+  for (const charger of filters.charger_type ?? []) {
+    const code = CHARGER_TYPE_CODES[charger];
+    if (code !== undefined) params.append("chargertype", String(code));
+  }
+
   if (filters.sort && SORT_VALUES[filters.sort]) {
     const { sortby, sortorder } = SORT_VALUES[filters.sort];
     if (sortby) params.set("sortby", sortby);
     if (sortorder) params.set("sortorder", sortorder);
   }
   if (page > 1) params.set("page", String(page));
-  const query = params.toString();
-  return query ? `${BASE_URL}?${query}` : BASE_URL;
+
+  // Tow-bar types and equipment are bare valueless flags (e.g. `&detachabletowbar`);
+  // Bilbasen drops them if given a value, so they can't go through URLSearchParams.
+  const bareFlags: string[] = [];
+  for (const t of filters.tow_bar ?? []) {
+    const flag = TOW_BAR_FLAGS[t];
+    if (flag) bareFlags.push(flag);
+  }
+  for (const equip of filters.equipment ?? []) {
+    if (EQUIPMENT_SET.has(equip)) bareFlags.push(equip);
+  }
+
+  const parts = [params.toString(), ...bareFlags].filter(Boolean);
+  return parts.length ? `${BASE_URL}?${parts.join("&")}` : BASE_URL;
 }
 
 interface RawListing {
