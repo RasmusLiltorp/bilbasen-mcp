@@ -40,7 +40,18 @@ enum ResponseFormat {
   JSON = "json",
 }
 
-const FilterShape = {
+/**
+ * The advanced filters roughly triple the size of the published tool schema,
+ * which every session pays for whether or not it searches by tow-bar type. They
+ * are therefore opt-in: set BILBASEN_FILTERS=full to expose them.
+ */
+// Accepts "true"/"1" as well as "full" so the .mcpb boolean user_config, which
+// interpolates as the string "true", can drive this without a separate knob.
+const ADVANCED_FILTERS_ENABLED = ["full", "true", "1"].includes(
+  (process.env.BILBASEN_FILTERS ?? "").trim().toLowerCase(),
+);
+
+const CoreFilterShape = {
   query: z
     .string()
     .min(1)
@@ -65,6 +76,21 @@ const FilterShape = {
   year_to: z.number().int().min(1900).max(2100).optional().describe("Latest model year."),
   mileage_from: z.number().int().min(0).optional().describe("Minimum mileage in kilometres."),
   mileage_to: z.number().int().min(0).optional().describe("Maximum mileage in kilometres."),
+  sort: z
+    .enum(["relevance", "price_asc", "price_desc", "newest", "year_desc", "mileage_asc"])
+    .optional()
+    .describe("Result ordering: 'price_asc'/'price_desc' by price, 'newest' by listing date, 'year_desc' by model year, 'mileage_asc' by mileage. Default: relevance."),
+};
+
+/** Appended to the search tool description only when the advanced tier is on. */
+const ADVANCED_ARGS_NOTE = `
+Advanced filters are enabled: towing, EV battery/charging, body, colour, doors,
+seats, boot, performance, economy, emissions, location and equipment flags.
+Spec filters (euro_norm_min, co2_max, trunk_size_min, ...) exclude listings that
+do not report that spec at all, so they narrow results more than expected.`;
+
+/** Opt-in filters, exposed only when BILBASEN_FILTERS=full. */
+const AdvancedFilterShape = {
   min_tow: z
     .number()
     .int()
@@ -78,7 +104,7 @@ const FilterShape = {
     .array(z.enum(["fixed", "removable", "swing_manual", "swing_electric"]))
     .optional()
     .describe(
-      "Require a fitted tow bar of the given type(s). fixed=fast monteret, removable=aftageligt, swing_manual=svingbart manuelt, swing_electric=svingbart elektrisk. NOTE: multiple types are AND-combined (a car must have all of them) — to match any fitted bar, search each type separately and merge.",
+      "Require a fitted tow bar of the given type(s). fixed=fast monteret, removable=aftageligt, swing_manual=svingbart manuelt, swing_electric=svingbart elektrisk. NOTE: multiple types are AND-combined (a car must have all of them). To match any fitted bar, search each type separately and merge.",
     ),
   // --- Battery & charging (EV) ---
   electric_range_min: z
@@ -96,24 +122,30 @@ const FilterShape = {
   charger_type: z
     .array(enumFrom(CHARGER_TYPE_OPTIONS))
     .optional()
-    .describe("Required charging connector(s): ccs_combo, chademo, type1, type2. OR-combined."),
+    .describe("Required charging connector(s). OR-combined."),
   charge_time_dc_max: z
     .number()
     .int()
-    .min(0)
+    .min(15)
+    .max(50)
+    .multipleOf(5)
     .optional()
-    .describe("Maximum DC fast-charge time in minutes (10-80%)."),
+    .describe(
+      "Maximum DC fast-charge time in minutes (10-80%). Bilbasen only offers 15-50 in steps of 5; other values are rejected.",
+    ),
   // --- Doors, seats & boot ---
   doors: z
     .array(enumFrom(DOOR_OPTIONS))
     .optional()
-    .describe("Number of doors (1-6). Multiple values are OR-combined."),
+    .describe("Number of doors. Multiple values are OR-combined."),
   trunk_size_min: z
     .number()
     .int()
-    .min(0)
+    .min(100)
+    .max(3000)
+    .multipleOf(100)
     .optional()
-    .describe("Minimum boot/luggage capacity in litres (Bilbasen steps by 100 L)."),
+    .describe("Minimum boot/luggage capacity in litres. Must be a multiple of 100 (100-3000)."),
   min_seven_seats: z
     .boolean()
     .optional()
@@ -135,7 +167,7 @@ const FilterShape = {
   cylinders: z
     .array(enumFrom(CYLINDER_OPTIONS))
     .optional()
-    .describe("Number of cylinders (1-12). Multiple values are OR-combined."),
+    .describe("Number of cylinders. Multiple values are OR-combined."),
   engine_volume_from: z.number().int().min(0).optional().describe("Minimum engine displacement in ccm."),
   engine_volume_to: z.number().int().min(0).optional().describe("Maximum engine displacement in ccm."),
   // --- Economy & condition ---
@@ -153,20 +185,18 @@ const FilterShape = {
     .optional()
     .describe("Minimum EuroNorm emission class (1-6)."),
   // --- Location ---
-  zip_code: z.number().int().min(0).max(9999).optional().describe("Your postal code, used with distance_max."),
+  zip_code: z.number().int().min(1000).max(9999).optional().describe("Your Danish postal code (1000-9999), used with distance_max."),
   distance_max: z
     .number()
     .int()
     .min(0)
     .optional()
-    .describe("Maximum distance to seller in km. Requires zip_code."),
+    .describe("Maximum distance to seller in km. Only takes effect together with zip_code."),
   // --- Appearance ---
   body_type: z
     .array(enumFrom(BODY_TYPE_OPTIONS))
     .optional()
-    .describe(
-      "Body type(s): micro, stationcar, suv, cuv, mpv, sedan, hatchback, cabriolet, coupe. OR-combined.",
-    ),
+    .describe("Body type(s), OR-combined. Note the Danish spelling 'mikro'."),
   color: z
     .array(enumFrom(COLOR_OPTIONS))
     .optional()
@@ -175,22 +205,24 @@ const FilterShape = {
   equipment: z
     .array(z.string())
     .optional()
+    // The full 171-flag list lives in the error rather than the description: it
+    // would otherwise cost ~1.6k tokens of context in every session, on both
+    // tools, to serve one niche filter. An invalid guess returns the whole list.
     .refine((arr) => !arr || arr.every((e) => EQUIPMENT_SET.has(e)), {
-      message: "Unknown equipment flag. See the tool description for valid values.",
+      message: `Unknown equipment flag. Valid flags by category:\n${equipmentCategories}`,
     })
     .describe(
-      "Required equipment feature flags. NOTE: AND-combined — cars must have ALL listed features. Valid values by category:\n" +
-        equipmentCategories,
+      `Required equipment feature flags, AND-combined (cars must have ALL of them). Lowercase, no separators, e.g. 'glassroof', 'heatedseats', 'applecarplay', 'adaptivecruisecontrol', 'towbar'. ${EQUIPMENT_OPTIONS.length} flags exist across ${Object.keys(EQUIPMENT_FLAGS).join("/")}; passing an invalid one returns the full list.`,
     ),
-  sort: z
-    .enum(["relevance", "price_asc", "price_desc", "newest", "year_desc", "mileage_asc"])
-    .optional()
-    .describe("Result ordering: 'price_asc'/'price_desc' by price, 'newest' by listing date, 'year_desc' by model year, 'mileage_asc' by mileage. Default: relevance."),
 };
+
+const SearchFilterShape = ADVANCED_FILTERS_ENABLED
+  ? { ...CoreFilterShape, ...AdvancedFilterShape }
+  : CoreFilterShape;
 
 const SearchInputSchema = z
   .object({
-    ...FilterShape,
+    ...SearchFilterShape,
     page: z.number().int().min(1).max(100).default(1).describe("Results page (30 listings per page)."),
     limit: z
       .number()
@@ -220,9 +252,11 @@ const ListingInputSchema = z
   })
   .strict();
 
+// Statistics describe a market segment, which the core filters already define;
+// the advanced set is deliberately not mirrored here to keep the schema small.
 const StatsInputSchema = z
   .object({
-    ...FilterShape,
+    ...CoreFilterShape,
     max_pages: z
       .number()
       .int()
@@ -237,14 +271,31 @@ const StatsInputSchema = z
   })
   .strict();
 
-// Every FilterShape key is also a SearchFilters key, so the filters are just the
-// filter-relevant subset of the validated tool input (page/limit/etc. excluded).
-const FILTER_KEYS = Object.keys(FilterShape) as (keyof SearchFilters)[];
+// The filters are just the filter-relevant subset of the validated tool input
+// (page/limit/response_format excluded). Both shapes are listed regardless of
+// the active tier: the input schema is strict, so a filter the tier does not
+// expose can never reach here.
+const ALL_FILTER_SHAPE = { ...CoreFilterShape, ...AdvancedFilterShape };
+const FILTER_KEYS = Object.keys(ALL_FILTER_SHAPE) as (keyof SearchFilters)[];
+
+// Compile-time guard: a filter declared in a shape but missing from
+// SearchFilters would otherwise be dropped silently on its way to the scraper.
+type FilterKeysAreDeclared =
+  keyof typeof ALL_FILTER_SHAPE extends keyof SearchFilters ? true : never;
+const _filterKeysAreDeclared: FilterKeysAreDeclared = true;
+void _filterKeysAreDeclared;
 
 function pickFilters(input: Record<string, unknown>): SearchFilters {
   const filters: Record<string, unknown> = {};
   for (const key of FILTER_KEYS) {
     if (input[key] !== undefined) filters[key] = input[key];
+  }
+  // Bilbasen silently drops `distance` when no zip code is present and returns
+  // the full unfiltered catalogue, so reject the pair instead of quietly lying.
+  // (Checked here rather than as a schema .refine(): wrapping the input object
+  // in a ZodEffects makes the MCP SDK publish an empty JSON schema.)
+  if (filters.distance_max !== undefined && filters.zip_code === undefined) {
+    throw new Error("distance_max only takes effect together with zip_code - supply both or neither.");
   }
   return filters as SearchFilters;
 }
@@ -306,27 +357,9 @@ server.registerTool(
 Filters can be combined freely. Results are paginated at 30 listings per page.
 This is a read-only search; it does not contact sellers or modify anything.
 
-Args:
-  - query (string, optional): Free-text search across make/model/variant
-  - fuel ('benzin'|'diesel'|'el'|'hybrid', optional): Fuel type
-  - gear ('manual'|'automatic', optional): Gearbox type
-  - seller_type ('dealer'|'private', optional): Restrict by seller
-  - price_from / price_to (number, optional): Cash price range in DKK
-  - year_from / year_to (number, optional): Model year range
-  - mileage_from / mileage_to (number, optional): Mileage range in km
-  - min_tow (number) / tow_bar (array, optional): Towing capacity in kg and fitted tow-bar type(s)
-  - electric_range_min / battery_capacity_min / charger_type / charge_time_dc_max (optional): EV battery & charging
-  - doors / trunk_size_min / min_seven_seats (optional): Doors, boot litres, 7+ seats
-  - drive_wheel / horsepower_from|to / torque_from|to / acceleration_max / cylinders / engine_volume_from|to (optional): Performance
-  - km_per_liter_min / green_tax_max / service_ok / newly_inspected (optional): Economy & condition
-  - co2_max / euro_norm_min (optional): Environment
-  - zip_code / distance_max (optional): Location (distance requires zip_code)
-  - body_type / color (array, optional): Body style & colour
-  - equipment (array, optional): Required equipment feature flags (see the equipment arg for valid values)
-  - sort ('relevance'|'price_asc'|'price_desc'|'newest'|'year_desc'|'mileage_asc'): Result ordering (default: 'relevance')
-  - page (number): Results page, 1-100 (default: 1)
-  - limit (number): Max listings to return, 1-30 (default: 30)
-  - response_format ('markdown'|'json'): Output format (default: 'markdown')
+Args: every filter is described in the input schema - free-text 'query' plus
+price, year, mileage, fuel, gear and seller. Paging via 'page'/'limit', output
+via 'response_format'.${ADVANCED_FILTERS_ENABLED ? ADVANCED_ARGS_NOTE : ""}
 
 Returns JSON with schema:
   {
@@ -489,21 +522,10 @@ mean and median for price (DKK), mileage (km) and model year.
 
 The 'sort' filter is accepted but does not affect the statistics.
 
-Args:
-  - query (string, optional): Free-text search across make/model/variant
-  - fuel ('benzin'|'diesel'|'el'|'hybrid', optional): Fuel type
-  - gear ('manual'|'automatic', optional): Gearbox type
-  - seller_type ('dealer'|'private', optional): Restrict by seller
-  - price_from / price_to (number, optional): Cash price range in DKK
-  - year_from / year_to (number, optional): Model year range
-  - mileage_from / mileage_to (number, optional): Mileage range in km
-  - min_tow, tow_bar, electric_range_min, battery_capacity_min, charger_type, charge_time_dc_max,
-    doors, trunk_size_min, min_seven_seats, drive_wheel, horsepower_from/to, torque_from/to,
-    acceleration_max, cylinders, engine_volume_from/to, km_per_liter_min, green_tax_max, service_ok,
-    newly_inspected, co2_max, euro_norm_min, zip_code, distance_max, body_type, color, equipment
-    (optional): same advanced filters as bilbasen_search_listings
-  - max_pages (number): Result pages to sample, 1-10 (default: 3)
-  - response_format ('markdown'|'json'): Output format (default: 'markdown')
+Args: the core filters (query, fuel, gear, seller, price, year, mileage), all
+described in the input schema, plus 'max_pages' to control the sample size and
+'response_format'. Statistics are always computed over the core filters; use
+bilbasen_search_listings for finer-grained filtering.
 
 Returns JSON with schema:
   {

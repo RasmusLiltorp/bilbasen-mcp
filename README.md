@@ -12,6 +12,29 @@ Bilbasen has no public API, so this server scrapes the site. It solves the AWS W
 
 All tools return both human-readable markdown and structured JSON.
 
+### Advanced filters (opt-in)
+
+`bilbasen_search_listings` can expose Bilbasen's full advanced filter panel:
+towing capacity and tow-bar type, EV range / battery / charging, body type,
+colour, doors, seats, boot size, drive wheels, horsepower, torque, acceleration,
+cylinders, engine volume, fuel economy, green tax, service and inspection state,
+CO2, EuroNorm, location radius, and 171 equipment flags.
+
+These are **off by default**. They roughly triple the size of the tool
+definitions the model has to read in every conversation (~2.1k to ~3.4k tokens),
+which is a poor trade if you mostly search by make, price and year.
+
+To turn them on, set `BILBASEN_FILTERS=full`:
+
+```bash
+claude mcp add bilbasen --scope user --env BILBASEN_FILTERS=full -- npx -y tsx /absolute/path/to/bilbasen-mcp/src/index.ts
+```
+
+In Claude Desktop, tick **Advanced search filters** in the extension's settings.
+
+`bilbasen_price_stats` always uses the core filters, since statistics describe a
+market segment; use `bilbasen_search_listings` for finer-grained filtering.
+
 ## Install
 
 ### Claude Desktop (one-click)
@@ -50,8 +73,19 @@ cd bilbasen-mcp
 npm install
 npm run dev          # watch mode (tsx)
 npm run typecheck    # tsc --noEmit
+npm test             # unit tests (node --test)
 npm run build        # bundle to dist/index.js
 npm run pack:mcpb    # build + produce bilbasen-mcp.mcpb
+```
+
+Bilbasen silently ignores a query parameter whose name or value it does not
+recognise and returns the full catalogue rather than an error, so a wrong
+parameter name looks identical to a working filter in unit tests. `src/live.test.ts`
+guards against that by asserting each filter actually narrows the result set.
+It hits the live site, so it is opt-in:
+
+```bash
+BILBASEN_LIVE=1 npm test
 ```
 
 Releases are cut by pushing a `v*` tag - [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the `.mcpb` and attaches it to the GitHub Release automatically.

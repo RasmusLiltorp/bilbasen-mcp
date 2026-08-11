@@ -96,7 +96,7 @@ const MULTI_VALUE_PARAMS: Array<[keyof SearchFilters, string]> = [
 
 // Anhængertræk (tow_bar) types are bare valueless flags. NOTE: Bilbasen
 // AND-combines equipment flags, so selecting several types matches only cars
-// that carry all of them — to match "any fitted tow bar", query each separately.
+// that carry all of them. To match "any fitted tow bar", query each separately.
 export const TOW_BAR_FLAGS: Record<string, string> = {
   fixed: "towbar",
   removable: "detachabletowbar",
@@ -114,9 +114,10 @@ export const CHARGER_TYPE_CODES: Record<string, number> = {
 };
 export const CHARGER_TYPE_OPTIONS = Object.keys(CHARGER_TYPE_CODES);
 
-// Karrosseri (body_type) accepted values.
+// Karrosseri (body_type) accepted values. Danish spelling: "mikro", not "micro"
+// - Bilbasen silently ignores an unrecognised cartype and returns everything.
 export const BODY_TYPE_OPTIONS = [
-  "micro", "stationcar", "suv", "cuv", "mpv", "sedan", "hatchback", "cabriolet", "coupe",
+  "mikro", "stationcar", "suv", "cuv", "mpv", "sedan", "hatchback", "cabriolet", "coupe",
 ];
 
 // Trækhjul (drive_wheel) accepted values.
@@ -125,8 +126,8 @@ export const DRIVE_WHEEL_OPTIONS = ["front", "back", "four"];
 // Antal døre (doors) accepted values.
 export const DOOR_OPTIONS = ["1", "2", "3", "4", "5", "6"];
 
-// Antal cylindre (cylinders) accepted values.
-export const CYLINDER_OPTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "10", "12"];
+// Antal cylindre (cylinders) accepted values. Bilbasen has no 7-cylinder option.
+export const CYLINDER_OPTIONS = ["1", "2", "3", "4", "5", "6", "8", "10", "12"];
 
 // Farve (color) accepted values (Danish colour names as used by Bilbasen).
 export const COLOR_OPTIONS = [

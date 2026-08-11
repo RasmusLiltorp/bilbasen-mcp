@@ -20,7 +20,19 @@
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/dist/index.js"]
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "BILBASEN_FILTERS": "${user_config.advanced_filters}"
+      }
+    }
+  },
+  "user_config": {
+    "advanced_filters": {
+      "type": "boolean",
+      "title": "Advanced search filters",
+      "description": "Expose the full filter set (towing, EV battery and charging, body type, colour, doors, seats, boot size, performance, economy, emissions, location and 171 equipment flags). Off by default because it roughly triples the size of the tool definitions Claude has to read in every conversation.",
+      "default": false,
+      "required": false
     }
   },
   "tools": [
